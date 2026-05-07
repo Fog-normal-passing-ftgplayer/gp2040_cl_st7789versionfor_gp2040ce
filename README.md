@@ -7,5 +7,6 @@ I’ve also added a nyan-cat screensaver and an extremely flashy boot animation 
 
 单色的oled显示实在太单调了所以我加了个彩色屏幕驱动的支持，目前只是添加了st7789硬件的支持
 建议使用spi1,具体接线请按照树莓派官方给出pico的引脚图示意接线，spi1协议的协议请不要接到spi0的引脚上
+（设定接线引脚时可以先拖拽选中后再输入你要配置的引脚）
 屏保添加了彩虹猫，并添加了极其酷炫的开机动画（酷炫在哪），文字颜色可以自定义并提供了取色器调色盘
 
