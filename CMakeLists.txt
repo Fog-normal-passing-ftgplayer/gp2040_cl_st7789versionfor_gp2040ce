@@ -238,6 +238,7 @@ src/interfaces/i2c/i2cdevicebase.cpp
 src/interfaces/i2c/pcf8575/pcf8575.cpp
 src/interfaces/i2c/ssd1306/obd_ssd1306.cpp
 src/interfaces/i2c/ssd1306/tiny_ssd1306.cpp
+	src/interfaces/spi/st7789/st7789.cpp
 src/display/ui/elements/GPWidget.cpp
 src/display/ui/elements/GPButton.cpp
 src/display/ui/elements/GPLever.cpp
@@ -308,7 +309,7 @@ ${PROTO_OUTPUT_DIR}/enums.pb.c
 ${PROTO_OUTPUT_DIR}/config.pb.c
 )
 
-set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME}_${CMAKE_PROJECT_VERSION}_${GP2040_BOARDCONFIG})
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME GP-2040CL-1.0.0)
 
 pico_set_program_name(GP2040-CE "GP2040-CE")
 pico_set_program_version(GP2040-CE ${GIT_REPO_VERSION})
@@ -347,6 +348,7 @@ headers/interfaces/i2c
 headers/interfaces/i2c/ads1219
 headers/interfaces/i2c/pcf8575
 headers/interfaces/i2c/ssd1306
+	headers/interfaces/spi/st7789
 headers/interfaces/i2c/wiiextension
 headers/gamepad
 headers/display

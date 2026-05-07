@@ -4,8 +4,8 @@
 #include <vector>
 #include "GPGFX_UI_widgets.h"
 
-const uint8_t SCREEN_WIDTH = 128;
-const uint8_t SCREEN_HEIGHT = 64;
+#define MAX_SAVER_W 240
+#define MAX_SAVER_H 240
 
 class DisplaySaverScreen : public GPScreen {
     public:
@@ -19,10 +19,11 @@ class DisplaySaverScreen : public GPScreen {
         virtual void drawScreen();
         uint16_t prevButtonState = 0;
         DisplaySaverMode displaySaverMode{};
+        uint16_t screenW = 128, screenH = 64;
 
         // snow screen
-        uint8_t snowflakeSpeeds[SCREEN_WIDTH][SCREEN_HEIGHT] = {};
-        int8_t snowflakeDrift[SCREEN_WIDTH][SCREEN_HEIGHT] = {};
+        uint8_t snowflakeSpeeds[MAX_SAVER_W][MAX_SAVER_H] = {};
+        int8_t snowflakeDrift[MAX_SAVER_W][MAX_SAVER_H] = {};
         void initSnowScene();
         void drawSnowScene();
 
@@ -54,6 +55,9 @@ class DisplaySaverScreen : public GPScreen {
         uint16_t toasterSpriteHeight = 35;
         void initToasters();
         void drawToasterScene();
+        void drawNyancatScene();
+        uint8_t nyancatFrame = 0;
+        uint32_t nyancatTick = 0;
 
         void delay_us(uint32_t us);
 

@@ -8,6 +8,7 @@
 #include "eventmanager.h"
 #include "layoutmanager.h"
 #include "peripheralmanager.h"
+#include "st7789.h"
 #include "animationstorage.h"
 #include "system.h"
 #include "config_utils.h"
@@ -42,7 +43,7 @@
 
 extern struct fsdata_file file__index_html[];
 
-const static char* spaPaths[] = { "/backup", "/display-config", "/led-config", "/pin-mapping", "/settings", "/reset-settings", "/add-ons", "/custom-theme", "/macro", "/peripheral-mapping" };
+const static char* spaPaths[] = { "/backup", "/display-config", "/spi-display-config", "/led-config", "/pin-mapping", "/settings", "/reset-settings", "/add-ons", "/custom-theme", "/macro", "/peripheral-mapping" };
 const static char* excludePaths[] = { "/css", "/images", "/js", "/static" };
 const static uint32_t rebootDelayMs = 500;
 static string http_post_uri;
@@ -249,7 +250,7 @@ int set_file_data(fs_file* file, const DataAndStatusCode& dataAndStatusCode)
     returnData->append(statusCodeStr);
     returnData->append("\r\n");
     returnData->append(
-        "Server: GP2040-CE " GP2040VERSION "\r\n"
+        "Server: GP-2040CE-COLOREDIT 1.0.0\r\n"
         "Content-Type: application/json\r\n"
         "Access-Control-Allow-Origin: *\r\n"
         "Content-Length: "
@@ -447,7 +448,22 @@ std::string setDisplayOptions(DisplayOptions& displayOptions)
     readDoc(displayOptions.inputHistoryLength, doc, "inputHistoryLength");
     readDoc(displayOptions.inputHistoryCol, doc, "inputHistoryCol");
     readDoc(displayOptions.inputHistoryRow, doc, "inputHistoryRow");
+    readDoc(displayOptions.size, doc, "size");
     readDoc(displayOptions.contrast, doc, "displayContrast");
+    readDoc(displayOptions.spiDisplayEnabled, doc, "spiDisplayEnabled");
+    readDoc(displayOptions.spiBlock, doc, "spiBlock");
+    readDoc(displayOptions.spiPinDc, doc, "spiPinDc");
+    readDoc(displayOptions.spiPinCs, doc, "spiPinCs");
+    readDoc(displayOptions.spiPinRst, doc, "spiPinRst");
+    readDoc(displayOptions.spiPinBl, doc, "spiPinBl");
+    readDoc(displayOptions.spiColOffset, doc, "spiColOffset");
+    readDoc(displayOptions.spiRowOffset, doc, "spiRowOffset");
+    readDoc(displayOptions.spiPinSck, doc, "spiPinSck");
+    readDoc(displayOptions.spiPinTx, doc, "spiPinTx");
+    readDoc(displayOptions.spiFlipVertical, doc, "spiFlipVertical");
+    readDoc(displayOptions.spiTextColor, doc, "spiTextColor");
+    readDoc(displayOptions.spiBgColor, doc, "spiBgColor");
+    readDoc(displayOptions.spiStatusBarColor, doc, "spiStatusBarColor");
 
     readDoc(displayOptions.buttonLayoutCustomOptions.paramsLeft.layout, doc, "buttonLayoutCustomOptions", "params", "layout");
     readDoc(displayOptions.buttonLayoutCustomOptions.paramsLeft.common.startX, doc, "buttonLayoutCustomOptions", "params", "startX");
@@ -504,7 +520,22 @@ std::string getDisplayOptions() // Manually set Document Attributes for the disp
     writeDoc(doc, "inputHistoryLength", displayOptions.inputHistoryLength);
     writeDoc(doc, "inputHistoryCol", displayOptions.inputHistoryCol);
     writeDoc(doc, "inputHistoryRow", displayOptions.inputHistoryRow);
+    writeDoc(doc, "size", displayOptions.size);
     writeDoc(doc, "displayContrast", displayOptions.contrast);
+    writeDoc(doc, "spiDisplayEnabled", displayOptions.spiDisplayEnabled ? 1 : 0);
+    writeDoc(doc, "spiBlock", displayOptions.spiBlock);
+    writeDoc(doc, "spiPinDc", displayOptions.spiPinDc);
+    writeDoc(doc, "spiPinCs", displayOptions.spiPinCs);
+    writeDoc(doc, "spiPinRst", displayOptions.spiPinRst);
+    writeDoc(doc, "spiPinBl", displayOptions.spiPinBl);
+    writeDoc(doc, "spiColOffset", displayOptions.spiColOffset);
+    writeDoc(doc, "spiRowOffset", displayOptions.spiRowOffset);
+    writeDoc(doc, "spiPinSck", displayOptions.spiPinSck);
+    writeDoc(doc, "spiPinTx", displayOptions.spiPinTx);
+    writeDoc(doc, "spiFlipVertical", displayOptions.spiFlipVertical ? 1 : 0);
+    writeDoc(doc, "spiTextColor", displayOptions.spiTextColor);
+    writeDoc(doc, "spiBgColor", displayOptions.spiBgColor);
+    writeDoc(doc, "spiStatusBarColor", displayOptions.spiStatusBarColor);
 
     writeDoc(doc, "buttonLayoutCustomOptions", "params", "layout", displayOptions.buttonLayoutCustomOptions.paramsLeft.layout);
     writeDoc(doc, "buttonLayoutCustomOptions", "params", "startX", displayOptions.buttonLayoutCustomOptions.paramsLeft.common.startX);
@@ -2428,7 +2459,7 @@ std::string getFirmwareVersion()
 {
     const size_t capacity = JSON_OBJECT_SIZE(10);
     DynamicJsonDocument doc(capacity);
-    writeDoc(doc, "version", GP2040VERSION);
+    writeDoc(doc, "version", "GP-2040CL-1.0.0");
     writeDoc(doc, "boardArchitecture", GP2040PLATFORM);
     writeDoc(doc, "boardBuild", GP2040BUILD);
     writeDoc(doc, "boardBuildType", GP2040CONFIG);
@@ -2675,9 +2706,21 @@ std:: string getJoystickCenter2() {
     return serialize_json(doc);
 }
 
+int g_previewSaver = 0;
+std::string previewSaver() { g_previewSaver = 1; return "{\"ok\":1}"; }
+std::string previewStop() { g_previewSaver = -1; return "{\"ok\":1}"; }
+
+std::string testSpiDisplay() {
+    st7789_runTestPattern();
+    return "{\"result\": \"ok\"}";
+}
+
 typedef std::string (*HandlerFuncPtr)();
 static const std::pair<const char*, HandlerFuncPtr> handlerFuncs[] =
 {
+    { "/api/previewSaver", previewSaver },
+    { "/api/previewStop", previewStop },
+    { "/api/testSpiDisplay", testSpiDisplay },
     { "/api/setDisplayOptions", setDisplayOptions },
     { "/api/setPreviewDisplayOptions", setPreviewDisplayOptions },
     { "/api/setGamepadOptions", setGamepadOptions },

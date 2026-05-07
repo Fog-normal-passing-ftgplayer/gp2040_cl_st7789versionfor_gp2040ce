@@ -1,13 +1,20 @@
 #include "DisplaySaverScreen.h"
 #include "BitmapScreens.h"
+#include "NyancatFrames.h"
+#include "st7789.h"
 
 #include "drivermanager.h"
 #include "pico/stdlib.h"
 #include "version.h"
+#include <cstring>
 
 void DisplaySaverScreen::init() {
     const DisplayOptions& options = Storage::getInstance().getDisplayOptions();
     displaySaverMode = options.displaySaverMode;
+    screenW = getRenderer()->getDriver()->getMetrics()->width;
+    screenH = getRenderer()->getDriver()->getMetrics()->height;
+    if (screenW > MAX_SAVER_W) screenW = MAX_SAVER_W;
+    if (screenH > MAX_SAVER_H) screenH = MAX_SAVER_H;
 
     getRenderer()->clearScreen();
 
@@ -21,6 +28,9 @@ void DisplaySaverScreen::init() {
             break;
         case DisplaySaverMode::DISPLAY_SAVER_TOAST:
             initToasters();
+            break;
+        case 5:
+            nyancatFrame = 0; nyancatTick = 0;
             break;
         default:
             break;
@@ -45,6 +55,9 @@ void DisplaySaverScreen::drawScreen() {
         case DisplaySaverMode::DISPLAY_SAVER_TOAST:
             drawToasterScene();
             break;
+        case 5:
+            drawNyancatScene();
+            break;
         default:
             break;
     }
@@ -63,8 +76,8 @@ int8_t DisplaySaverScreen::update() {
 }
 
 void DisplaySaverScreen::initSnowScene() {
-    for (uint8_t x = 0; x < SCREEN_WIDTH; ++x) {
-        for (uint8_t y = 0; y < SCREEN_HEIGHT; ++y) {
+    for (uint8_t x = 0; x < screenW; ++x) {
+        for (uint8_t y = 0; y < screenH; ++y) {
             snowflakeSpeeds[x][y] = 0;
             snowflakeDrift[x][y] = 0;
             getRenderer()->drawPixel(x, y, 0);
@@ -73,8 +86,8 @@ void DisplaySaverScreen::initSnowScene() {
 }
 
 void DisplaySaverScreen::drawSnowScene() {
-    for (int8_t y = SCREEN_HEIGHT - 1; y >= 0; --y) {
-        for (uint8_t x = 0; x < SCREEN_WIDTH; ++x) {
+    for (int8_t y = screenH - 1; y >= 0; --y) {
+        for (uint8_t x = 0; x < screenW; ++x) {
             if (snowflakeSpeeds[x][y] > 0) {
                 uint8_t speed = snowflakeSpeeds[x][y];
                 uint8_t newY = y + speed;
@@ -82,9 +95,9 @@ void DisplaySaverScreen::drawSnowScene() {
                 int8_t newX = x + drift;
 
                 if (newX < 0) newX = 0;
-                if (newX >= SCREEN_WIDTH) newX = SCREEN_WIDTH - 1;
+                if (newX >= screenW) newX = screenW - 1;
 
-                if (newY >= SCREEN_HEIGHT) {
+                if (newY >= screenH) {
                     getRenderer()->drawPixel(x, y, 0);
                     snowflakeSpeeds[x][y] = 0;
                     snowflakeDrift[x][y] = 0;
@@ -100,7 +113,7 @@ void DisplaySaverScreen::drawSnowScene() {
         }
     }
 
-    for (uint8_t x = 0; x < SCREEN_WIDTH; ++x) {
+    for (uint8_t x = 0; x < screenW; ++x) {
         if (rand() % 10 == 0) {
             getRenderer()->drawPixel(x, 0, 1);
             snowflakeSpeeds[x][0] = (rand() % 3) + 1;
@@ -116,9 +129,9 @@ void DisplaySaverScreen::drawBounceScene() {
     bounceSpriteX += bounceSpriteVelocityX;
     bounceSpriteY += bounceSpriteVelocityY;
 
-    if (bounceSpriteX <= 0 || bounceSpriteX + scaledWidth >= SCREEN_WIDTH) bounceSpriteVelocityX = -bounceSpriteVelocityX;
+    if (bounceSpriteX <= 0 || bounceSpriteX + scaledWidth >= screenW) bounceSpriteVelocityX = -bounceSpriteVelocityX;
 
-    if (bounceSpriteY <= 0 || bounceSpriteY + scaledHeight >= SCREEN_HEIGHT) bounceSpriteVelocityY = -bounceSpriteVelocityY;
+    if (bounceSpriteY <= 0 || bounceSpriteY + scaledHeight >= screenH) bounceSpriteVelocityY = -bounceSpriteVelocityY;
 
     getRenderer()->drawSprite((uint8_t *)bitmapGP2040Logo, bounceSpriteWidth, bounceSpriteHeight, 0, bounceSpriteX, bounceSpriteY, 0, bounceScale);
 }
@@ -130,17 +143,17 @@ void DisplaySaverScreen::drawPipeScene() {
     uint8_t currentX = 0;
     uint8_t currentY = 0;
 
-    while (currentY < SCREEN_HEIGHT) {
+    while (currentY < screenH) {
         bool connectRight = rand() % 2;
         bool connectDown = rand() % 2;
 
-        if (connectRight && currentX + PIPE_WIDTH < SCREEN_WIDTH) {
+        if (connectRight && currentX + PIPE_WIDTH < screenW) {
             for (uint8_t i = 0; i < PIPE_WIDTH; ++i) {
                 getRenderer()->drawPixel(currentX + i, currentY, PIPE_COLOR);
             }
         }
 
-        if (connectDown && currentY + PIPE_WIDTH < SCREEN_HEIGHT) {
+        if (connectDown && currentY + PIPE_WIDTH < screenH) {
             for (uint8_t i = 0; i < PIPE_WIDTH; ++i) {
                 getRenderer()->drawPixel(currentX, currentY + i, PIPE_COLOR);
             }
@@ -149,7 +162,7 @@ void DisplaySaverScreen::drawPipeScene() {
         getRenderer()->drawPixel(currentX, currentY, PIPE_COLOR);
 
         currentX += PIPE_WIDTH;
-        if (currentX >= SCREEN_WIDTH) {
+        if (currentX >= screenW) {
             currentX = 0;
             currentY += PIPE_WIDTH;
         }
@@ -166,8 +179,8 @@ void DisplaySaverScreen::initToasters() {
 
         toasters.push_back({
             scale,
-            static_cast<int16_t>(SCREEN_WIDTH - toasterSpriteWidth * scale),
-            static_cast<int16_t>(rand() % (SCREEN_HEIGHT - static_cast<int16_t>(toasterSpriteHeight * scale))),
+            static_cast<int16_t>(screenW - toasterSpriteWidth * scale),
+            static_cast<int16_t>(rand() % (screenH - static_cast<int16_t>(toasterSpriteHeight * scale))),
             static_cast<int16_t>(dx),
             static_cast<int16_t>(dy)
         });
@@ -184,16 +197,27 @@ void DisplaySaverScreen::drawToasterScene() {
         sprite.y += sprite.dy;
 
         if (sprite.x + toasterSpriteWidth * sprite.scale < 0) {
-            sprite.x = SCREEN_WIDTH;
-            sprite.y = rand() % (SCREEN_HEIGHT - static_cast<int16_t>(toasterSpriteHeight * sprite.scale));
+            sprite.x = screenW;
+            sprite.y = rand() % (screenH - static_cast<int16_t>(toasterSpriteHeight * sprite.scale));
             sprite.dx = (-1 - rand() % 2);
             sprite.dy = (1 + rand() % 2);
         }
 
-        if (sprite.y > SCREEN_HEIGHT) {
+        if (sprite.y > screenH) {
             sprite.y = 0;
         }
     }
+}
+
+void DisplaySaverScreen::drawNyancatScene() {
+    GPGFX_DisplayBase* drv = getRenderer()->getDriver();
+    if (drv && drv->isSPI()) {
+        GPGFX_ST7789* st = static_cast<GPGFX_ST7789*>(drv);
+        st->blitFrame(nyancat_frames[nyancatFrame]);
+        getRenderer()->render();
+        nyancatFrame = (nyancatFrame + 1) % NYANCAT_FRAMES;
+    }
+    delay_us(33333);
 }
 
 void DisplaySaverScreen::delay_us(uint32_t us) {

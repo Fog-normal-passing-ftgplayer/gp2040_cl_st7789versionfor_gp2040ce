@@ -14,6 +14,7 @@
 #include "version.h"
 #include "config.pb.h"
 #include "class/hid/hid.h"
+#include "st7789.h"
 
 bool DisplayAddon::available() {
     const DisplayOptions& options = Storage::getInstance().getDisplayOptions();
@@ -23,7 +24,7 @@ bool DisplayAddon::available() {
     gpDisplay = new GPGFX();
     gpOptions = gpDisplay->getAvailableDisplay(GPGFX_DisplayType::DISPLAY_TYPE_NONE);
     if ( gpOptions.displayType != GPGFX_DisplayType::DISPLAY_TYPE_NONE ) {
-        if ( options.enabled ) {
+        if ( options.enabled || options.spiDisplayEnabled ) {
             result = true;
         } else {
             // Power off our display if its available but disabled in config
@@ -50,7 +51,13 @@ void DisplayAddon::setup() {
 
     // Setup GPGFX Options
     if (gpOptions.displayType != GPGFX_DisplayType::DISPLAY_TYPE_NONE) {
-        gpOptions.size = options.size;
+        // For SPI display, keep the detected resolution (stored size may be 128x64 from I2C defaults)
+        // Only override if the stored size is valid for this display type
+        if (gpOptions.displayType != GPGFX_DisplayType::DISPLAY_TYPE_ST7789 ||
+            options.size == GPGFX_DisplaySize::SIZE_135x240 ||
+            options.size == GPGFX_DisplaySize::SIZE_240x135) {
+            gpOptions.size = options.size;
+        }
         gpOptions.orientation = options.flip;
         gpOptions.inverted = options.invert;
         gpOptions.font.fontData = GP_Font_Standard;
@@ -143,37 +150,29 @@ bool DisplayAddon::updateDisplayScreen() {
 bool DisplayAddon::isDisplayPowerOff()
 {
     Gamepad * gamepad = Storage::getInstance().GetGamepad();
-
     if (turnOffWhenSuspended && get_usb_suspended()) {
-        if (displayIsPowerOn)
-            setDisplayPower(0);
+        if (displayIsPowerOn) setDisplayPower(0);
         return true;
     } else {
-        if (!displayIsPowerOn)
-            setDisplayPower(1);
+        if (!displayIsPowerOn) setDisplayPower(1);
     }
-
     if (!displaySaverTimeout) return false;
-
-    float diffTime = getMillis() - prevMillis;
-    displaySaverTimer -= diffTime;
-    if (!!displaySaverTimeout && (gamepad->state.buttons || gamepad->state.dpad)) {
-        displaySaverTimer = displaySaverTimeout;
-        setDisplayPower(1);
-    } else if (!!displaySaverTimeout && displaySaverTimer <= 0) {
+    uint32_t now = getMillis();
+    if (gamepad->state.buttons || gamepad->state.dpad) {
+        prevMillis = now;
+        if (currDisplayMode == DISPLAY_SAVER) {
+            currDisplayMode = BUTTONS; updateDisplayScreen();
+        }
+    } else if ((now - prevMillis) >= displaySaverTimeout && currDisplayMode != DISPLAY_SAVER) {
         if (displaySaverMode == DisplaySaverMode::DISPLAY_SAVER_DISPLAY_OFF) {
             setDisplayPower(0);
         } else {
-            if (currDisplayMode != DISPLAY_SAVER) {
-                currDisplayMode = DISPLAY_SAVER;
-                updateDisplayScreen();
-            }
+            currDisplayMode = DISPLAY_SAVER;
+            nextDisplayMode = DISPLAY_SAVER; // sync to prevent immediate revert
+            if ((int)displaySaverMode != 5) updateDisplayScreen();
         }
     }
-
-    prevMillis = getMillis();
-
-    return ((!!displaySaverTimeout && displaySaverTimer <= 0) && (displaySaverMode == DisplaySaverMode::DISPLAY_SAVER_DISPLAY_OFF));
+    return false;
 }
 
 void DisplayAddon::setDisplayPower(uint8_t status)
@@ -199,16 +198,36 @@ void DisplayAddon::setMenuMappings()
 }
 
 void DisplayAddon::process() {
-    // If GPDisplay is not loaded or we're in standard mode with display power off enabled
-    if (gpDisplay->getDriver() == nullptr ||
-        (!configMode && isDisplayPowerOff())) {
-        return;
+    // Preview: g_previewSaver triggers saver via web API
+    extern int g_previewSaver;
+    if (g_previewSaver == 1 && currDisplayMode != DISPLAY_SAVER) {
+        currDisplayMode = DISPLAY_SAVER; updateDisplayScreen(); g_previewSaver = 0;
+    }
+    if (g_previewSaver == -1 && currDisplayMode == DISPLAY_SAVER) {
+        currDisplayMode = BUTTONS; updateDisplayScreen(); g_previewSaver = 0;
     }
 
-    // Core0 requested a new display mode
-    if (nextDisplayMode != currDisplayMode ) {
-        currDisplayMode = nextDisplayMode;
-        updateDisplayScreen();
+    if (gpDisplay->getDriver() == nullptr) return;
+    if (!configMode && isDisplayPowerOff()) return;
+
+    if (nextDisplayMode != currDisplayMode) {
+        currDisplayMode = nextDisplayMode; updateDisplayScreen();
+    }
+
+    // Nyan Cat (mode 5): render directly via ST7789, bypass screen system
+    if (currDisplayMode == DISPLAY_SAVER && displaySaverMode == (DisplaySaverMode)5) {
+        extern const uint16_t* nyancat_frames[];
+        #define NYANCAT_FRAMES 3
+        static uint8_t nf = 0;
+        GPGFX_DisplayBase* drv = gpDisplay->getDriver();
+        if (drv && drv->isSPI()) {
+            GPGFX_ST7789* st = static_cast<GPGFX_ST7789*>(drv);
+            st->blitFrame(nyancat_frames[nf]);
+        }
+        gpDisplay->render();
+        nf = (nf + 1) % NYANCAT_FRAMES;
+        sleep_ms(33);
+        return;
     }
 
     int8_t screenReturn = gpScreen->update();

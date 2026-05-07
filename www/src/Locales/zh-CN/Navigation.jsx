@@ -4,6 +4,7 @@ export default {
 	'config-label': '功能配置',
 	'custom-theme-label': '自定义 LED 主题',
 	'display-config-label': '显示屏配置',
+	'spi-display-config-label': '全彩SPI屏幕设置',
 	'docs-label': '文档',
 	'github-label': 'GitHub',
 	'home-label': '首页',

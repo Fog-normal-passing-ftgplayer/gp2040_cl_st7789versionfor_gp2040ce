@@ -4,6 +4,7 @@ export default {
 	'config-label': 'Configuration',
 	'custom-theme-label': 'Custom LED Theme',
 	'display-config-label': 'Display Configuration',
+	'spi-display-config-label': 'SPI Display Config',
 	'docs-label': 'Documentation',
 	'github-label': 'GitHub',
 	'home-label': 'Home',

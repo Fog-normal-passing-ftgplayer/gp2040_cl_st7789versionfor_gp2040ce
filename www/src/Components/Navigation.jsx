@@ -102,6 +102,13 @@ const Navigation = () => {
 						>
 							{t('Navigation:display-config-label')}
 						</NavDropdown.Item>
+							<NavDropdown.Item
+								as={NavLink}
+								eventKey={eventKey++}
+								to="/spi-display-config"
+							>
+								{t('Navigation:spi-display-config-label')}
+							</NavDropdown.Item>
 						<NavDropdown.Item as={NavLink} eventKey={eventKey++} to="/add-ons">
 							{t('Navigation:add-ons-label')}
 						</NavDropdown.Item>

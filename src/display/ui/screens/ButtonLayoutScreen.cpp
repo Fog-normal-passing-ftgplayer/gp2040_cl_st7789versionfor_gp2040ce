@@ -1,4 +1,5 @@
 #include "ButtonLayoutScreen.h"
+#include "st7789.h"
 #include "buttonlayouts.h"
 #include "drivermanager.h"
 #include "drivers/ps4/PS4Driver.h"
@@ -18,12 +19,23 @@ void ButtonLayoutScreen::init() {
     EventManager::getInstance().registerEventHandler(GP_EVENT_PROFILE_CHANGE, GPEVENT_CALLBACK(this->handleProfileChange(event)));
     EventManager::getInstance().registerEventHandler(GP_EVENT_USBHOST_MOUNT, GPEVENT_CALLBACK(this->handleUSB(event)));
     EventManager::getInstance().registerEventHandler(GP_EVENT_USBHOST_UNMOUNT, GPEVENT_CALLBACK(this->handleUSB(event)));
-    
+
     footer = "";
     historyString = "";
     inputHistory.clear();
 
-    setViewport((isInputHistoryEnabled ? 8 : 0), 0, (isInputHistoryEnabled ? 56 : getRenderer()->getDriver()->getMetrics()->height), getRenderer()->getDriver()->getMetrics()->width);
+    uint16_t displayWidth = getRenderer()->getDriver()->getMetrics()->width;
+    uint16_t displayHeight = getRenderer()->getDriver()->getMetrics()->height;
+
+    // Scale layout for larger color display (240x135 landscape)
+    layoutScaleX = (float)displayWidth / 128.0f * 0.95f;
+    layoutScaleY = (float)displayHeight / 64.0f * 0.95f;
+
+    uint16_t layoutW = (uint16_t)(128 * layoutScaleX);
+    uint16_t layoutH = (uint16_t)(64 * layoutScaleY);
+    _layoutOffsetX = (displayWidth - layoutW) / 2;
+    _layoutOffsetY = (displayHeight - layoutH) / 2;
+    setViewport(0, 0, displayHeight, displayWidth);
 
 	// load layout (drawElement pushes element to the display list)
     uint16_t elementCtr = 0;
@@ -268,22 +280,80 @@ void ButtonLayoutScreen::generateHeader() {
 }
 
 void ButtonLayoutScreen::drawScreen() {
+    uint16_t displayWidth = getRenderer()->getDriver()->getMetrics()->width;
+    uint16_t displayHeight = getRenderer()->getDriver()->getMetrics()->height;
+    uint16_t barWidth = (displayWidth > 128) ? displayWidth - 1 : 127;
+    uint8_t footerRow = (displayHeight > 64) ? (displayHeight / 8) - 2 : 6;
+    if (footerRow < 6) footerRow = 6;
+    // Center status bar text horizontally on wider displays
+    uint8_t fontW = 6;
+    uint8_t textGridX = (displayWidth > (uint16_t)(statusBar.size() * fontW))
+        ? (displayWidth - (uint16_t)(statusBar.size() * fontW)) / (fontW * 2) : 0;
+
+    // Use configured status bar text color (only for SPI color display)
+    uint16_t barColor = Storage::getInstance().getDisplayOptions().spiStatusBarColor;
+    GPGFX_DisplayBase* drv = getRenderer()->getDriver();
+    GPGFX_ST7789* st = drv->isSPI() ? static_cast<GPGFX_ST7789*>(drv) : nullptr;
+    if (st) st->setOverrideColor(barColor);
+
+    // Always draw status bar with solid background for visibility on color displays
     if (bannerDisplay) {
-        getRenderer()->drawRectangle(0, 0, 128, 7, true, true);
-    	getRenderer()->drawText(0, 0, statusBar, true);
+        getRenderer()->drawRectangle(0, 0, barWidth, 7, true, true);
+    	getRenderer()->drawText(textGridX, 0, statusBar, true);
     } else {
-		getRenderer()->drawText(0, 0, statusBar);
-	}
-    getRenderer()->drawText(0, 7, footer);
+        // Draw dark background behind status bar text for contrast
+        getRenderer()->drawRectangle(0, 0, barWidth, 7, false, true);
+        getRenderer()->drawText(textGridX, 0, statusBar, false);
+    }
+    if (st) st->setOverrideColor(0);
+
+    getRenderer()->drawText(0, footerRow, footer);
+
+    // Gothic medieval corner ornaments at screen edges
+    uint32_t gold = 0xFDA0, dark = 0x8400;
+    int W = displayWidth, H = displayHeight, S = 24;
+    auto drawCorner = [&](int ox, int oy, int mx, int my) {
+        auto px = [&](int x) { return ox + (mx ? -(x) : x); };
+        auto py = [&](int y) { return oy + (my ? -(y) : y); };
+        auto dp = [&](int x, int y, uint32_t c) { getRenderer()->drawPixel(px(x), py(y), c); };
+        // L-bracket along edges
+        for (int i = 0; i <= S; i++) { dp(i, 0, gold); dp(0, i, gold); }
+        // Gothic pointed arch
+        for (int i = 3; i <= S-3; i++) {
+            int y = S - i;
+            dp(i, y, gold);
+            if (i < S-4) { dp(i-1, y, dark); dp(i, y-1, dark); }
+        }
+        // Inner shadow arch
+        for (int i = 6; i <= S-6; i++) {
+            int y = S - i - 3;
+            if (y > 0) { dp(i, y, dark); if (i%3==0) dp(i+1, y-1, gold); }
+        }
+        // Ornamental dots along diagonal
+        for (int d = 0; d < 4; d++) {
+            int x = 4 + d*5, y = S - 4 - d*5;
+            if (y > 0) { dp(x, y, gold); dp(x+1, y-1, dark); }
+        }
+        // Edge post circles
+        dp(10, 1, dark); dp(1, 10, dark);
+        // Diamond tip
+        int dx = S-8, dy = S-8;
+        dp(dx, dy, gold); dp(dx+1, dy, dark); dp(dx-1, dy, dark);
+        dp(dx, dy+1, dark); dp(dx, dy-1, dark);
+    };
+    drawCorner(0, 0, 0, 0);       // top-left
+    drawCorner(W-1, 0, 1, 0);     // top-right
+    drawCorner(0, H-1, 0, 1);     // bottom-left
+    drawCorner(W-1, H-1, 1, 1);   // bottom-right
 }
 
 GPLever* ButtonLayoutScreen::addLever(uint16_t startX, uint16_t startY, uint16_t sizeX, uint16_t sizeY, uint16_t strokeColor, uint16_t fillColor, uint16_t inputType) {
     GPLever* lever = new GPLever();
     lever->setRenderer(getRenderer());
-    lever->setPosition(startX, startY);
+    lever->setPosition((uint16_t)(startX * layoutScaleX) + _layoutOffsetX, (uint16_t)(startY * layoutScaleY) + _layoutOffsetY);
+    lever->setRadius((uint16_t)(sizeX * ((layoutScaleX + layoutScaleY) / 2.0f)));
     lever->setStrokeColor(strokeColor);
     lever->setFillColor(fillColor);
-    lever->setRadius(sizeX);
     lever->setInputType(inputType);
     lever->setViewport(this->getViewport());
     return (GPLever*)addElement(lever);
@@ -292,10 +362,10 @@ GPLever* ButtonLayoutScreen::addLever(uint16_t startX, uint16_t startY, uint16_t
 GPButton* ButtonLayoutScreen::addButton(uint16_t startX, uint16_t startY, uint16_t sizeX, uint16_t sizeY, uint16_t strokeColor, uint16_t fillColor, int16_t inputMask) {
     GPButton* button = new GPButton();
     button->setRenderer(getRenderer());
-    button->setPosition(startX, startY);
+    button->setPosition((uint16_t)(startX * layoutScaleX) + _layoutOffsetX, (uint16_t)(startY * layoutScaleY) + _layoutOffsetY);
     button->setStrokeColor(strokeColor);
     button->setFillColor(fillColor);
-    button->setSize(sizeX, sizeY);
+    button->setSize((uint16_t)(sizeX * layoutScaleX), (uint16_t)(sizeY * layoutScaleY));
     button->setInputMask(inputMask);
     button->setViewport(this->getViewport());
     return (GPButton*)addElement(button);
@@ -304,10 +374,10 @@ GPButton* ButtonLayoutScreen::addButton(uint16_t startX, uint16_t startY, uint16
 GPShape* ButtonLayoutScreen::addShape(uint16_t startX, uint16_t startY, uint16_t sizeX, uint16_t sizeY, uint16_t strokeColor, uint16_t fillColor) {
     GPShape* shape = new GPShape();
     shape->setRenderer(getRenderer());
-    shape->setPosition(startX, startY);
+    shape->setPosition((uint16_t)(startX * layoutScaleX) + _layoutOffsetX, (uint16_t)(startY * layoutScaleY) + _layoutOffsetY);
     shape->setStrokeColor(strokeColor);
     shape->setFillColor(fillColor);
-    shape->setSize(sizeX,sizeY);
+    shape->setSize((uint16_t)(sizeX * layoutScaleX), (uint16_t)(sizeY * layoutScaleY));
     shape->setViewport(this->getViewport());
     return (GPShape*)addElement(shape);
 }
@@ -315,8 +385,8 @@ GPShape* ButtonLayoutScreen::addShape(uint16_t startX, uint16_t startY, uint16_t
 GPSprite* ButtonLayoutScreen::addSprite(uint16_t startX, uint16_t startY, uint16_t sizeX, uint16_t sizeY) {
     GPSprite* sprite = new GPSprite();
     sprite->setRenderer(getRenderer());
-    sprite->setPosition(startX, startY);
-    sprite->setSize(sizeX,sizeY);
+    sprite->setPosition((uint16_t)(startX * layoutScaleX) + _layoutOffsetX, (uint16_t)(startY * layoutScaleY) + _layoutOffsetY);
+    sprite->setSize((uint16_t)(sizeX * layoutScaleX), (uint16_t)(sizeY * layoutScaleY));
     sprite->setViewport(this->getViewport());
     return (GPSprite*)addElement(sprite);
 }

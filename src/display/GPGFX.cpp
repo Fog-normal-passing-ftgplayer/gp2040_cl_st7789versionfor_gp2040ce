@@ -4,8 +4,11 @@
 #include <vector>
 
 #include "peripheralmanager.h"
+#include "storagemanager.h"
+#include "config.pb.h"
 #include "obd_ssd1306.h"
 #include "tiny_ssd1306.h"
+#include "st7789.h"
 
 std::map<GPGFX_DisplayType, std::map<GPGFX_DisplaySize, GPGFX_DisplayMetrics>> GPGFX_DisplayModes = {
     {
@@ -13,6 +16,13 @@ std::map<GPGFX_DisplayType, std::map<GPGFX_DisplaySize, GPGFX_DisplayMetrics>> G
         {
             {SIZE_128x32,{128,32,1}},
             {SIZE_128x64,{128,64,1}},
+        },
+    },
+    {
+        {DISPLAY_TYPE_ST7789},
+        {
+            {SIZE_135x240,{135,240,16}},
+            {SIZE_240x135,{240,135,16}},
         },
     },
 };
@@ -25,6 +35,9 @@ void GPGFX::init(GPGFX_DisplayTypeOptions options) {
     switch (options.displayType) {
         case GPGFX_DisplayType::DISPLAY_TYPE_SSD1306:
             this->displayDriver = new GPGFX_TinySSD1306();
+            break;
+        case GPGFX_DisplayType::DISPLAY_TYPE_ST7789:
+            this->displayDriver = new GPGFX_ST7789();
             break;
         default:
             options.displayType = GPGFX_DisplayType::DISPLAY_TYPE_NONE;
@@ -59,6 +72,8 @@ bool GPGFX::detectDisplay(GPGFX_DisplayTypeOptions* display, GPGFX_DisplayType d
 
     if (displayType == GPGFX_DisplayType::DISPLAY_TYPE_SSD1306) {
         driver = new GPGFX_TinySSD1306();
+    } else if (displayType == GPGFX_DisplayType::DISPLAY_TYPE_ST7789) {
+        driver = new GPGFX_ST7789();
     } else {
         driver = nullptr;
     }
@@ -75,7 +90,17 @@ bool GPGFX::detectDisplay(GPGFX_DisplayTypeOptions* display, GPGFX_DisplayType d
             }
         }
         if (driver->isSPI()) {
-            // NYI: check if SPI display exists
+            // SPI detection: webconfig-based (driver handles SPI init directly)
+            const DisplayOptions& dispOpts = Storage::getInstance().getDisplayOptions();
+            if (dispOpts.spiDisplayEnabled && dispOpts.spiBlock >= 0 && dispOpts.spiBlock <= 1) {
+                display->displayType = displayType;
+                display->spi = PeripheralManager::getInstance().getSPI((uint8_t)dispOpts.spiBlock);
+                display->size = GPGFX_DisplaySize::SIZE_240x135;
+                display->orientation = 0;
+                display->inverted = false;
+                delete driver;
+                return true;
+            }
         }
         delete driver;
     }

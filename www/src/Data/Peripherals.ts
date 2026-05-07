@@ -20,6 +20,9 @@ export const SPI_BLOCKS = [
 			cs: [1, 5, 17, 21],
 			sck: [2, 6, 18, 22],
 			tx: [3, 7, 19, 23],
+			dc: [],
+			rst: [],
+			bl: [],
 		},
 	},
 	{
@@ -30,6 +33,9 @@ export const SPI_BLOCKS = [
 			cs: [9, 13, 25, 29],
 			sck: [10, 14, 26],
 			tx: [11, 15, 27],
+			dc: [],
+			rst: [],
+			bl: [],
 		},
 	},
 ];

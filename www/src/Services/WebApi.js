@@ -236,6 +236,22 @@ async function setDisplayOptions(options, isPreview) {
 		);
 	}
 
+	newOptions.spiDisplayEnabled = parseInt(options.spiDisplayEnabled);
+	newOptions.spiBlock = parseInt(options.spiBlock);
+	newOptions.spiPinDc = parseInt(options.spiPinDc);
+	newOptions.spiPinCs = parseInt(options.spiPinCs);
+	newOptions.spiPinRst = parseInt(options.spiPinRst);
+	newOptions.spiPinBl = parseInt(options.spiPinBl);
+	newOptions.spiColOffset = parseInt(options.spiColOffset);
+	newOptions.spiRowOffset = parseInt(options.spiRowOffset);
+	newOptions.spiPinSck = parseInt(options.spiPinSck);
+	newOptions.spiPinTx = parseInt(options.spiPinTx);
+	newOptions.spiFlipVertical = parseInt(options.spiFlipVertical);
+	newOptions.spiTextColor = parseInt(options.spiTextColor);
+	newOptions.spiBgColor = parseInt(options.spiBgColor);
+	newOptions.spiStatusBarColor = parseInt(options.spiStatusBarColor);
+	newOptions.sleepTimeout = parseInt(options.sleepTimeout);
+	newOptions.size = parseInt(options.size);
 	delete newOptions.splashImage;
 	const url = !isPreview
 		? `${baseUrl}/api/setDisplayOptions`
@@ -697,6 +713,19 @@ async function reboot(bootMode) {
 		.catch(console.error);
 }
 
+async function testSpiDisplay() {
+	return Http.post(`${baseUrl}/api/testSpiDisplay`, {})
+		.then(() => true)
+		.catch(() => false);
+}
+async function previewSaver() { return Http.post(`${baseUrl}/api/previewSaver`, {}).then(()=>true).catch(()=>false); }
+async function previewStop() { return Http.post(`${baseUrl}/api/previewStop`, {}).then(()=>true).catch(()=>false); }
+
+async function syncTime() {
+    return Http.post(`${baseUrl}/api/setTime`, { epoch: Date.now() })
+        .then(() => true).catch(() => false);
+}
+
 function sanitizeRequest(request) {
 	const newRequest = { ...request };
 	delete newRequest.usedPins;
@@ -707,6 +736,10 @@ export default {
 	resetSettings,
 	getDisplayOptions,
 	setDisplayOptions,
+		testSpiDisplay,
+		previewSaver,
+		previewStop,
+		syncTime,
 	getGamepadOptions,
 	setGamepadOptions,
 	getLedOptions,

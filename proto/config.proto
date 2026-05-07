@@ -271,6 +271,21 @@ message DisplayOptions
     optional uint32 inputHistoryRow = 30;
     
     optional uint32 contrast = 31;
+    optional bool spiDisplayEnabled = 32;
+    optional int32 spiBlock = 33;
+    optional int32 spiPinDc = 34;
+    optional int32 spiPinCs = 35;
+    optional int32 spiPinRst = 36;
+    optional int32 spiPinBl = 37;
+    optional int32 spiColOffset = 38;
+    optional int32 spiRowOffset = 39;
+    optional int32 spiPinSck = 40;
+    optional int32 spiPinTx = 41;
+    optional bool spiFlipVertical = 42;
+    optional uint32 spiTextColor = 43;
+    optional uint32 spiBgColor = 44;
+    optional uint32 spiStatusBarColor = 45;
+    optional uint32 rtcEpoch = 46;
 }
 
 message LEDOptions

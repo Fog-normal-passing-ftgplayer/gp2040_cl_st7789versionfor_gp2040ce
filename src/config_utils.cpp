@@ -458,6 +458,20 @@ void ConfigUtils::initUnsetPropertiesWithDefaults(Config& config)
     INIT_UNSET_PROPERTY(config.displayOptions, displaySaverMode, DISPLAY_SAVER_MODE);
     INIT_UNSET_PROPERTY(config.displayOptions, buttonLayoutOrientation, DISPLAY_LAYOUT_ORIENTATION);
     INIT_UNSET_PROPERTY(config.displayOptions, contrast, DISPLAY_CONTRAST);
+    INIT_UNSET_PROPERTY(config.displayOptions, spiDisplayEnabled, false);
+    INIT_UNSET_PROPERTY(config.displayOptions, spiBlock, -1);
+    INIT_UNSET_PROPERTY(config.displayOptions, spiPinDc, -1);
+    INIT_UNSET_PROPERTY(config.displayOptions, spiPinCs, -1);
+    INIT_UNSET_PROPERTY(config.displayOptions, spiPinRst, -1);
+    INIT_UNSET_PROPERTY(config.displayOptions, spiPinBl, -1);
+    INIT_UNSET_PROPERTY(config.displayOptions, spiColOffset, 0);
+    INIT_UNSET_PROPERTY(config.displayOptions, spiRowOffset, 0);
+    INIT_UNSET_PROPERTY(config.displayOptions, spiPinSck, -1);
+    INIT_UNSET_PROPERTY(config.displayOptions, spiPinTx, -1);
+    INIT_UNSET_PROPERTY(config.displayOptions, spiFlipVertical, false);
+    INIT_UNSET_PROPERTY(config.displayOptions, spiTextColor, 0xFFFF);
+    INIT_UNSET_PROPERTY(config.displayOptions, spiBgColor, 0x0000);
+    INIT_UNSET_PROPERTY(config.displayOptions, spiStatusBarColor, 0xFFFF);
 
     // peripheralOptions
     PeripheralOptions& peripheralOptions = config.peripheralOptions;

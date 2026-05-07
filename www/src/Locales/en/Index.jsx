@@ -10,6 +10,7 @@ import LedConfig from './LedConfig';
 import CustomTheme from './CustomTheme';
 import BackupPage from './BackupPage';
 import DisplayConfig from './DisplayConfig';
+import SPIDisplayConfig from './SPIDisplayConfig';
 import AddonsConfig from './AddonsConfig';
 import CaptureButton from './CaptureButton';
 import WiiAddon from './Addons/WiiAddon';
@@ -34,6 +35,7 @@ export default {
 	CustomTheme,
 	BackupPage,
 	DisplayConfig,
+	SPIDisplayConfig,
 	AddonsConfig,
 	CaptureButton,
 	WiiAddon,

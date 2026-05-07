@@ -10,6 +10,7 @@ import PeripheralMappingPage from './Pages/PeripheralMappingPage';
 import ResetSettingsPage from './Pages/ResetSettingsPage';
 import SettingsPage from './Pages/SettingsPage';
 import DisplayConfigPage from './Pages/DisplayConfig';
+import SPIDisplayConfigPage from './Pages/SPIDisplayConfigPage';
 import LEDConfigPage from './Pages/LEDConfigPage';
 import CustomThemePage from './Pages/CustomThemePage';
 import AddonsConfigPage from './Pages/AddonsConfigPage';
@@ -37,6 +38,7 @@ const App = () => {
 						<Route path="/led-config" element={<LEDConfigPage />} />
 						<Route path="/custom-theme" element={<CustomThemePage />} />
 						<Route path="/display-config" element={<DisplayConfigPage />} />
+						<Route path="/spi-display-config" element={<SPIDisplayConfigPage />} />
 						<Route path="/add-ons" element={<AddonsConfigPage />} />
 						<Route path="/backup" element={<BackupPage />} />
 						<Route path="/playground" element={<PlaygroundPage />} />
