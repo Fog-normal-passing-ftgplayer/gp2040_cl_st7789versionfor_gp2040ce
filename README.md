@@ -3,6 +3,8 @@
 
 The monochrome OLED display was way too dull, so I added support for a color screen driver. Right now, it only includes hardware support for the ST7789.
 I recommend using SPI1. For the wiring, please follow the official Raspberry Pi pico pinout diagram. Make sure not to connect the SPI1 pins to the SPI0 pins.
+
+
 I’ve also added a nyan-cat screensaver and an extremely flashy boot animation (you’ll see where the “flashy” part is 😏). Text color is now fully customizable, complete with a color picker palette.
 //------------------------------ Especially Important ----------------------------------//
 Please strictly follow the official pinout diagram and connect using the correct SPI1 or SPI0 pins (MOSI, TX, SCK, etc.).
