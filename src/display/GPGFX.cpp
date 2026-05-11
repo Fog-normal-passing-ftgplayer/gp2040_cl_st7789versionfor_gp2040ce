@@ -9,6 +9,7 @@
 #include "obd_ssd1306.h"
 #include "tiny_ssd1306.h"
 #include "st7789.h"
+#include "st7735.h"
 
 std::map<GPGFX_DisplayType, std::map<GPGFX_DisplaySize, GPGFX_DisplayMetrics>> GPGFX_DisplayModes = {
     {
@@ -25,6 +26,13 @@ std::map<GPGFX_DisplayType, std::map<GPGFX_DisplaySize, GPGFX_DisplayMetrics>> G
             {SIZE_240x135,{240,135,16}},
         },
     },
+    {
+        {DISPLAY_TYPE_ST7735},
+        {
+            {SIZE_80x160,{80,160,16}},
+            {SIZE_160x80,{160,80,16}},
+        },
+    },
 };
 
 GPGFX::GPGFX() {
@@ -38,6 +46,9 @@ void GPGFX::init(GPGFX_DisplayTypeOptions options) {
             break;
         case GPGFX_DisplayType::DISPLAY_TYPE_ST7789:
             this->displayDriver = new GPGFX_ST7789();
+            break;
+        case GPGFX_DisplayType::DISPLAY_TYPE_ST7735:
+            this->displayDriver = new GPGFX_ST7735();
             break;
         default:
             options.displayType = GPGFX_DisplayType::DISPLAY_TYPE_NONE;
@@ -74,6 +85,8 @@ bool GPGFX::detectDisplay(GPGFX_DisplayTypeOptions* display, GPGFX_DisplayType d
         driver = new GPGFX_TinySSD1306();
     } else if (displayType == GPGFX_DisplayType::DISPLAY_TYPE_ST7789) {
         driver = new GPGFX_ST7789();
+    } else if (displayType == GPGFX_DisplayType::DISPLAY_TYPE_ST7735) {
+        driver = new GPGFX_ST7735();
     } else {
         driver = nullptr;
     }
@@ -90,16 +103,20 @@ bool GPGFX::detectDisplay(GPGFX_DisplayTypeOptions* display, GPGFX_DisplayType d
             }
         }
         if (driver->isSPI()) {
-            // SPI detection: webconfig-based (driver handles SPI init directly)
             const DisplayOptions& dispOpts = Storage::getInstance().getDisplayOptions();
             if (dispOpts.spiDisplayEnabled && dispOpts.spiBlock >= 0 && dispOpts.spiBlock <= 1) {
-                display->displayType = displayType;
-                display->spi = PeripheralManager::getInstance().getSPI((uint8_t)dispOpts.spiBlock);
-                display->size = GPGFX_DisplaySize::SIZE_240x135;
-                display->orientation = 0;
-                display->inverted = false;
-                delete driver;
-                return true;
+                // Match display type from config: 0=ST7789, 1=ST7735
+                bool match = (displayType == DISPLAY_TYPE_ST7789 && dispOpts.spiDisplayType == 0) ||
+                             (displayType == DISPLAY_TYPE_ST7735 && dispOpts.spiDisplayType == 1);
+                if (match) {
+                    display->displayType = displayType;
+                    display->spi = PeripheralManager::getInstance().getSPI((uint8_t)dispOpts.spiBlock);
+                    display->size = (displayType == DISPLAY_TYPE_ST7735) ? GPGFX_DisplaySize::SIZE_160x80 : GPGFX_DisplaySize::SIZE_240x135;
+                    display->orientation = 0;
+                    display->inverted = false;
+                    delete driver;
+                    return true;
+                }
             }
         }
         delete driver;

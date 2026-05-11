@@ -1,7 +1,6 @@
 #include "DisplaySaverScreen.h"
 #include "BitmapScreens.h"
 #include "NyancatFrames.h"
-#include "st7789.h"
 
 #include "drivermanager.h"
 #include "pico/stdlib.h"
@@ -211,13 +210,12 @@ void DisplaySaverScreen::drawToasterScene() {
 
 void DisplaySaverScreen::drawNyancatScene() {
     GPGFX_DisplayBase* drv = getRenderer()->getDriver();
-    if (drv && drv->isSPI()) {
-        GPGFX_ST7789* st = static_cast<GPGFX_ST7789*>(drv);
-        st->blitFrame(nyancat_frames[nyancatFrame]);
-        getRenderer()->render();
+    if (drv && drv->isSPI() && screenW == NYANCAT_WIDTH && screenH == NYANCAT_HEIGHT) {
+        drv->blitFrame(nyancat_frames[nyancatFrame]);
         nyancatFrame = (nyancatFrame + 1) % NYANCAT_FRAMES;
     }
-    delay_us(33333);
+    getRenderer()->render();
+    delay_us(NYANCAT_DELAY_MS * 1000);
 }
 
 void DisplaySaverScreen::delay_us(uint32_t us) {

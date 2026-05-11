@@ -286,6 +286,7 @@ message DisplayOptions
     optional uint32 spiBgColor = 44;
     optional uint32 spiStatusBarColor = 45;
     optional uint32 rtcEpoch = 46;
+    optional int32 spiDisplayType = 47;
 }
 
 message LEDOptions

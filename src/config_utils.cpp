@@ -472,6 +472,7 @@ void ConfigUtils::initUnsetPropertiesWithDefaults(Config& config)
     INIT_UNSET_PROPERTY(config.displayOptions, spiTextColor, 0xFFFF);
     INIT_UNSET_PROPERTY(config.displayOptions, spiBgColor, 0x0000);
     INIT_UNSET_PROPERTY(config.displayOptions, spiStatusBarColor, 0xFFFF);
+    INIT_UNSET_PROPERTY(config.displayOptions, spiDisplayType, 0);
 
     // peripheralOptions
     PeripheralOptions& peripheralOptions = config.peripheralOptions;

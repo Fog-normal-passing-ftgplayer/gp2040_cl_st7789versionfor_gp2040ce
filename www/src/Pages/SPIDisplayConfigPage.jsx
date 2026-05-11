@@ -12,6 +12,7 @@ export default function SPIDisplayConfigPage() {
     const { t } = useTranslation('');
 
     const [spiDisplayEnabled, setSpiDisplayEnabled] = useState(0);
+	const [spiDisplayType, setSpiDisplayType] = useState(0);
     const [spiBlock, setSpiBlock] = useState(1);
     const [size, setSize] = useState(100);
     const [spiPinDc, setSpiPinDc] = useState(-1);
@@ -49,6 +50,7 @@ export default function SPIDisplayConfigPage() {
                 const defs = await WebApi.getButtonLayoutDefs();
                 setLayoutDefs(defs);
                 setSpiDisplayEnabled(data.spiDisplayEnabled ?? 0);
+		setSpiDisplayType(data.spiDisplayType ?? 0);
                 setSpiBlock(data.spiBlock ?? 1);
                 setSize(data.size ?? 100);
                 setSpiPinDc(data.spiPinDc ?? -1);
@@ -93,6 +95,7 @@ export default function SPIDisplayConfigPage() {
         const options = {
             spiDisplayEnabled,
             spiBlock,
+			spiDisplayType,
             size,
             spiPinDc,
             spiPinCs,
@@ -162,6 +165,16 @@ export default function SPIDisplayConfigPage() {
                             <option value={0}>SPI 0</option>
                             <option value={1}>SPI 1</option>
                         </Form.Select>
+				</div>
+			</div>
+
+			<div class="row mb-3">
+				<label class="col-sm-3 col-form-label">Display Type</label>
+				<div class="col-sm-9">
+					<Form.Select value={spiDisplayType} onChange={(e) => setSpiDisplayType(parseInt(e.target.value))}>
+						<option value={0}>ST7789</option>
+						<option value={1}>ST7735</option>
+					</Form.Select>
                     </div>
                 </div>
 
@@ -171,6 +184,8 @@ export default function SPIDisplayConfigPage() {
                         <Form.Select value={size} onChange={(e) => setSize(parseInt(e.target.value))}>
                             <option value={100}>135x240 (Portrait)</option>
                             <option value={101}>240x135 (Landscape)</option>
+						<option value={200}>80x160 (ST7735)</option>
+						<option value={201}>160x80 (ST7735 Landscape)</option>
                         </Form.Select>
                     </div>
                 </div>

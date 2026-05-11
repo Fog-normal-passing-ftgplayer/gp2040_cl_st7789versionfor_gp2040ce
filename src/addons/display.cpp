@@ -14,7 +14,6 @@
 #include "version.h"
 #include "config.pb.h"
 #include "class/hid/hid.h"
-#include "st7789.h"
 
 bool DisplayAddon::available() {
     const DisplayOptions& options = Storage::getInstance().getDisplayOptions();
@@ -53,9 +52,12 @@ void DisplayAddon::setup() {
     if (gpOptions.displayType != GPGFX_DisplayType::DISPLAY_TYPE_NONE) {
         // For SPI display, keep the detected resolution (stored size may be 128x64 from I2C defaults)
         // Only override if the stored size is valid for this display type
-        if (gpOptions.displayType != GPGFX_DisplayType::DISPLAY_TYPE_ST7789 ||
-            options.size == GPGFX_DisplaySize::SIZE_135x240 ||
-            options.size == GPGFX_DisplaySize::SIZE_240x135) {
+        if (gpOptions.displayType == GPGFX_DisplayType::DISPLAY_TYPE_ST7735) {
+            if (options.size == GPGFX_DisplaySize::SIZE_80x160 ||
+                options.size == GPGFX_DisplaySize::SIZE_160x80)
+                gpOptions.size = options.size;
+        } else if (options.size == GPGFX_DisplaySize::SIZE_135x240 ||
+                   options.size == GPGFX_DisplaySize::SIZE_240x135) {
             gpOptions.size = options.size;
         }
         gpOptions.orientation = options.flip;
@@ -216,17 +218,19 @@ void DisplayAddon::process() {
 
     // Nyan Cat (mode 5): render directly via ST7789, bypass screen system
     if (currDisplayMode == DISPLAY_SAVER && displaySaverMode == (DisplaySaverMode)5) {
-        extern const uint16_t* nyancat_frames[];
-        #define NYANCAT_FRAMES 3
-        static uint8_t nf = 0;
+        // Nyan Cat: only use frame data if display is 240x135, else procedural
         GPGFX_DisplayBase* drv = gpDisplay->getDriver();
-        if (drv && drv->isSPI()) {
-            GPGFX_ST7789* st = static_cast<GPGFX_ST7789*>(drv);
-            st->blitFrame(nyancat_frames[nf]);
+        uint16_t fw = drv ? drv->getMetrics()->width : 0;
+        uint16_t fh = drv ? drv->getMetrics()->height : 0;
+        if (drv && drv->isSPI() && ((fw == 240 && fh == 135) || (fw == 160 && fh == 80))) {
+            extern const uint16_t* nyancat_frames[];
+            #define NYANCAT_FRAMES 3
+            static uint8_t nf = 0;
+            drv->blitFrame(nyancat_frames[nf]);
+            gpDisplay->render();
+            nf = (nf + 1) % NYANCAT_FRAMES;
+            sleep_ms(33);
         }
-        gpDisplay->render();
-        nf = (nf + 1) % NYANCAT_FRAMES;
-        sleep_ms(33);
         return;
     }
 

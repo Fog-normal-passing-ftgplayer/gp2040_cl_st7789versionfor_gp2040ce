@@ -464,6 +464,7 @@ std::string setDisplayOptions(DisplayOptions& displayOptions)
     readDoc(displayOptions.spiTextColor, doc, "spiTextColor");
     readDoc(displayOptions.spiBgColor, doc, "spiBgColor");
     readDoc(displayOptions.spiStatusBarColor, doc, "spiStatusBarColor");
+	readDoc(displayOptions.spiDisplayType, doc, "spiDisplayType");
 
     readDoc(displayOptions.buttonLayoutCustomOptions.paramsLeft.layout, doc, "buttonLayoutCustomOptions", "params", "layout");
     readDoc(displayOptions.buttonLayoutCustomOptions.paramsLeft.common.startX, doc, "buttonLayoutCustomOptions", "params", "startX");
@@ -536,6 +537,7 @@ std::string getDisplayOptions() // Manually set Document Attributes for the disp
     writeDoc(doc, "spiTextColor", displayOptions.spiTextColor);
     writeDoc(doc, "spiBgColor", displayOptions.spiBgColor);
     writeDoc(doc, "spiStatusBarColor", displayOptions.spiStatusBarColor);
+	writeDoc(doc, "spiDisplayType", displayOptions.spiDisplayType);
 
     writeDoc(doc, "buttonLayoutCustomOptions", "params", "layout", displayOptions.buttonLayoutCustomOptions.paramsLeft.layout);
     writeDoc(doc, "buttonLayoutCustomOptions", "params", "startX", displayOptions.buttonLayoutCustomOptions.paramsLeft.common.startX);

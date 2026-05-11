@@ -250,6 +250,7 @@ async function setDisplayOptions(options, isPreview) {
 	newOptions.spiTextColor = parseInt(options.spiTextColor);
 	newOptions.spiBgColor = parseInt(options.spiBgColor);
 	newOptions.spiStatusBarColor = parseInt(options.spiStatusBarColor);
+	newOptions.spiDisplayType = parseInt(options.spiDisplayType);
 	newOptions.sleepTimeout = parseInt(options.sleepTimeout);
 	newOptions.size = parseInt(options.size);
 	delete newOptions.splashImage;

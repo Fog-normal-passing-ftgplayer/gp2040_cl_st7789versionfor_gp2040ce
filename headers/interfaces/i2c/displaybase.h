@@ -49,6 +49,8 @@ class GPGFX_DisplayBase : public I2CDeviceBase {
 
         virtual bool isSPI() { return false; }
         virtual bool isI2C() { return false; }
+        virtual void setOverrideColor(uint16_t c) {}
+        virtual void blitFrame(const uint16_t* frame) {}
     private:
         GPGFX_DisplayMetrics* _metrics = nullptr;
 };

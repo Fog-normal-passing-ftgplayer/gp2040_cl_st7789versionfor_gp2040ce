@@ -1,5 +1,4 @@
 #include "ButtonLayoutScreen.h"
-#include "st7789.h"
 #include "buttonlayouts.h"
 #include "drivermanager.h"
 #include "drivers/ps4/PS4Driver.h"
@@ -293,8 +292,7 @@ void ButtonLayoutScreen::drawScreen() {
     // Use configured status bar text color (only for SPI color display)
     uint16_t barColor = Storage::getInstance().getDisplayOptions().spiStatusBarColor;
     GPGFX_DisplayBase* drv = getRenderer()->getDriver();
-    GPGFX_ST7789* st = drv->isSPI() ? static_cast<GPGFX_ST7789*>(drv) : nullptr;
-    if (st) st->setOverrideColor(barColor);
+    drv->setOverrideColor(barColor);
 
     // Always draw status bar with solid background for visibility on color displays
     if (bannerDisplay) {
@@ -305,7 +303,7 @@ void ButtonLayoutScreen::drawScreen() {
         getRenderer()->drawRectangle(0, 0, barWidth, 7, false, true);
         getRenderer()->drawText(textGridX, 0, statusBar, false);
     }
-    if (st) st->setOverrideColor(0);
+    drv->setOverrideColor(0);
 
     getRenderer()->drawText(0, footerRow, footer);
 

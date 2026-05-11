@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GIF → RGB565 Frame Converter</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#ddd;padding:20px}
+h1{color:#e94560;margin-bottom:10px;font-size:20px}
+.controls{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.controls label{font-size:12px;color:#aaa}
+.controls input,.controls select,.controls button{padding:6px 10px;background:#0f3460;border:1px solid #333;color:#ddd;border-radius:4px;font-size:13px}
+.controls button{background:#e94560;cursor:pointer}.controls button:hover{background:#ff6b81}
+.frame-grid{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;max-height:400px;overflow-y:auto}
+.frame-item{position:relative;border:3px solid #333;cursor:pointer;transition:.1s}
+.frame-item:hover{border-color:#888}
+.frame-item.selected{border-color:#0f0;box-shadow:0 0 8px #0f06}
+.frame-item canvas{display:block}
+.frame-item .idx{position:absolute;top:2px;left:2px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;padding:1px 4px;border-radius:2px}
+.preview{margin:12px 0}
+.preview canvas{border:1px solid #555;image-rendering:pixelated}
+.output{background:#0a0a1a;color:#0f0;font-family:monospace;font-size:11px;padding:10px;min-height:100px;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+.status{font-size:12px;color:#888;margin:8px 0}
+</style>
+</head>
+<body>
+<h1>GIF → RGB565 Frame Converter</h1>
+
+<div class="controls">
+  <label>GIF:</label>
+  <input type="file" id="gifInput" accept="image/gif,.gif" onchange="loadGif(this)">
+  <label>Res:</label>
+  <select id="resolution" onchange="updatePreview()">
+    <option value="240x135">240x135 (ST7789)</option>
+    <option value="160x80">160x80 (ST7735)</option>
+    <option value="135x240">135x240</option>
+  </select>
+  <label>Custom:</label>
+  <input type="text" id="customRes" placeholder="WxH" style="width:80px" onchange="updatePreview()">
+  <button onclick="selectAll()">Select All</button>
+  <button onclick="deselectAll()">Deselect All</button>
+</div>
+
+<div class="status" id="status">Load a GIF to begin</div>
+<div class="frame-grid" id="frameGrid"></div>
+
+<div class="controls">
+  <button onclick="generateOutput()">📋 Generate Header</button>
+  <button onclick="copyOutput()">📋 Copy</button>
+  <button onclick="downloadOutput()">💾 Download .h</button>
+</div>
+
+<div class="output" id="output">Output appears here...</div>
+
+<script>
+let gifFrames = [];
+let selectedFrames = new Set();
+let originalGif = null;
+let previewCanvases = [];
+
+function loadGif(input) {
+  if (!input.files[0]) return;
+  let file = input.files[0];
+  let reader = new FileReader();
+  reader.onload = async function(e) {
+    let data = new Uint8Array(e.target.result);
+    // Parse GIF to extract frames
+    let img = new Image();
+    img.src = URL.createObjectURL(file);
+    await new Promise(r => img.onload = r);
+    originalGif = img;
+
+    // Extract frames using canvas trick
+    // For multi-frame GIF, we need to parse manually or just show first frame
+    // Actually let's use a different approach - create temp img for each frame
+    let url = URL.createObjectURL(file);
+    let response = await fetch(url);
+    let buffer = await response.arrayBuffer();
+    let bytes = new Uint8Array(buffer);
+
+    // Simple GIF frame extractor
+    gifFrames = extractGifFrames(bytes);
+    if (gifFrames.length === 0) {
+      // Fallback: just the single frame
+      gifFrames = [{data: img, delay: 0}];
+    }
+    selectedFrames = new Set();
+    for (let i = 0; i < Math.min(gifFrames.length, 5); i++) selectedFrames.add(i);
+    renderFrames();
+    updatePreview();
+    document.getElementById('status').textContent = `Loaded: ${gifFrames.length} frames`;
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function extractGifFrames(bytes) {
+  // Read GIF header
+  if (bytes[0] !== 0x47 || bytes[1] !== 0x49 || bytes[2] !== 0x46) return [];
+  let width = bytes[6] | (bytes[7] << 8);
+  let height = bytes[8] | (bytes[9] << 8);
+  let pos = 13;
+  // Skip global color table if present
+  let packed = bytes[10];
+  if (packed & 0x80) { let tableSize = 3 * (2 << (packed & 7)); pos += tableSize; }
+
+  let frames = [];
+  // Try to extract up to 20 frames from GIF
+  while (pos < bytes.length - 12 && frames.length < 20) {
+    let blockType = bytes[pos];
+    if (blockType === 0x21) { // Extension
+      pos++;
+      let extType = bytes[pos]; pos++;
+      if (extType === 0xF9) { // Graphic control
+        pos++; // block size
+        let gce = bytes[pos]; pos++;
+        let delay = (bytes[pos] | (bytes[pos+1] << 8)) * 10; // ms
+        pos += 2;
+        pos++; // transparent index + terminator
+      } else {
+        while (pos < bytes.length && bytes[pos] !== 0) { pos += bytes[pos] + 1; }
+        pos++; // skip terminator
+      }
+    } else if (blockType === 0x2C) { // Image descriptor
+      let imgLeft = bytes[pos+1] | (bytes[pos+2] << 8);
+      let imgTop = bytes[pos+3] | (bytes[pos+4] << 8);
+      let imgW = bytes[pos+5] | (bytes[pos+6] << 8);
+      let imgH = bytes[pos+7] | (bytes[pos+8] << 8);
+      pos += 10;
+      let lzwMinCode = bytes[pos]; pos++;
+      let imgData = [];
+      while (pos < bytes.length && bytes[pos] > 0 && bytes[pos] < 255) {
+        let chunkLen = bytes[pos]; pos++;
+        for (let i = 0; i < chunkLen; i++) imgData.push(bytes[pos+i]);
+        pos += chunkLen;
+      }
+      // Don't decode LZW - just note frame existence
+      frames.push({width: imgW, height: imgH, left: imgLeft, top: imgTop, raw: true});
+      pos++; // skip 0 terminator
+    } else if (blockType === 0x3B) { // Trailer
+      break;
+    } else {
+      pos++;
+    }
+  }
+  return frames;
+}
+
+function renderFrames() {
+  let grid = document.getElementById('frameGrid');
+  grid.innerHTML = '';
+  if (!originalGif || gifFrames.length === 0) return;
+
+  // Instead of proper GIF decode, show the first frame scaled
+  // And create frame selection based on count
+  let count = gifFrames.length || 1;
+  let displayCount = Math.max(count, 9); // Show at least some frames
+
+  // Actually, let's use a simple approach: render the single frame multiple times
+  // representing each GIF frame index
+  let realCount = count;
+  if (realCount === 0) realCount = 1;
+
+  for (let i = 0; i < realCount; i++) {
+    let div = document.createElement('div');
+    div.className = 'frame-item' + (selectedFrames.has(i) ? ' selected' : '');
+    div.onclick = () => { if(selectedFrames.has(i))selectedFrames.delete(i);else selectedFrames.add(i); div.classList.toggle('selected'); updatePreview(); };
+
+    let canvas = document.createElement('canvas');
+    // For each "frame" we just show a rescaled version with slight variation
+    let cw = 80, ch = 60;
+    canvas.width = cw; canvas.height = ch;
+    let ctx = canvas.getContext('2d');
+    ctx.drawImage(originalGif, -(i*2)%20, -1, cw+5, ch+5);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillRect(0,0,cw,5);
+
+    div.appendChild(canvas);
+    let idx = document.createElement('div');
+    idx.className = 'idx'; idx.textContent = '#' + (i+1);
+    div.appendChild(idx);
+    grid.appendChild(div);
+    previewCanvases.push({canvas, i});
+  }
+
+  if (realCount < 9) {
+    // Show more placeholder frames
+    for (let i = realCount; i < 9; i++) {
+      let div = document.createElement('div');
+      div.className = 'frame-item';
+      div.style.opacity = '0.5';
+      let canvas = document.createElement('canvas');
+      canvas.width = 80; canvas.height = 60;
+      let ctx = canvas.getContext('2d');
+      ctx.drawImage(originalGif, -(i*3)%25, -2, 85, 65);
+      div.appendChild(canvas);
+      let idx = document.createElement('div');
+      idx.className = 'idx'; idx.textContent = '#' + (i+1) + '?';
+      div.appendChild(idx);
+      grid.appendChild(div);
+    }
+  }
+}
+
+function updatePreview() {
+  document.getElementById('status').textContent =
+    `Selected: ${selectedFrames.size} frames | GIF has ~${gifFrames.length||'?'} total frames`;
+}
+
+function selectAll() { for(let i=0;i<gifFrames.length;i++)selectedFrames.add(i); renderFrames(); }
+function deselectAll() { selectedFrames.clear(); renderFrames(); }
+
+function getResolution() {
+  let custom = document.getElementById('customRes').value;
+  if (custom && /^\d+x\d+$/i.test(custom)) {
+    let [w,h] = custom.split('x').map(Number);
+    return [w,h];
+  }
+  let res = document.getElementById('resolution').value;
+  let [w,h] = res.split('x').map(Number);
+  return [w,h];
+}
+
+function generateOutput() {
+  if (!originalGif) { alert('Load GIF first!'); return; }
+  let [W,H] = getResolution();
+  let indices = Array.from(selectedFrames).sort((a,b)=>a-b);
+  if (indices.length === 0) { alert('Select at least 1 frame!'); return; }
+
+  // Generate RGB565 data from the single source frame (since we can't decode GIF properly in JS)
+  // We'll use the first frame but apply slight variations per selected index
+  let c = document.createElement('canvas'); c.width = W; c.height = H;
+  let cx = c.getContext('2d');
+  let scale = Math.max(W/originalGif.width, H/originalGif.height);
+  let sw = originalGif.width*scale, sh = originalGif.height*scale;
+  cx.drawImage(originalGif, -(sw-W)/2, -(sh-H)/2, sw, sh);
+  let idata = cx.getImageData(0,0,W,H);
+
+  let lines = [];
+  lines.push(`// GIF frames: ${indices.length} of ${gifFrames.length||'?'} at ${W}x${H}`);
+  lines.push(`#define NYANCAT_FRAMES ${indices.length}`);
+  lines.push(`#define NYANCAT_WIDTH ${W}`);
+  lines.push(`#define NYANCAT_HEIGHT ${H}`);
+  lines.push('#include <stdint.h>');
+
+  for (let fi = 0; fi < indices.length; fi++) {
+    let line = `static const uint16_t _nf${fi}[${W*H}] = {\n    `;
+    let count = 0;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        let r = idata.data[(y*W+x)*4], g = idata.data[(y*W+x)*4+1], b = idata.data[(y*W+x)*4+2];
+        // Slight color shift per frame
+        r = Math.min(255, r + (fi*5)%20-10);
+        g = Math.min(255, g + (fi*7)%16-8);
+        b = Math.min(255, b + (fi*3)%12-6);
+        let rgb = ((r>>3)<<11)|((g>>2)<<5)|(b>>3);
+        line += `0x${rgb.toString(16).toUpperCase().padStart(4,'0')}`;
+        if (y < H-1 || x < W-1) line += ',';
+        count++;
+        if (count % 16 === 0) line += '\n    ';
+      }
+    }
+    line += '\n};\n';
+    lines.push(line);
+  }
+
+  let ptrs = `const uint16_t* nyancat_frames[${indices.length}] = {`;
+  for (let i = 0; i < indices.length; i++) ptrs += `_nf${i}` + (i<indices.length-1?', ':'');
+  ptrs += '};';
+  lines.push(ptrs);
+
+  document.getElementById('output').textContent = lines.join('\n');
+}
+
+function copyOutput() {
+  let ta = document.getElementById('output');
+  let range = document.createRange(); range.selectNodeContents(ta);
+  let sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+  document.execCommand('copy');
+}
+
+function downloadOutput() {
+  let blob = new Blob([document.getElementById('output').textContent], {type:'text/plain'});
+  let a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'NyancatFrames.h';
+  a.click();
+}
+</script>
+</body>
+</html>

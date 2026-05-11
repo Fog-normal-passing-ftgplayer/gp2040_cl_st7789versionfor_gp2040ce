@@ -16,12 +16,15 @@ typedef enum {
     SIZE_64x128,
     SIZE_135x240 = 100,
     SIZE_240x135,
+    SIZE_80x160 = 200,
+    SIZE_160x80,
 } GPGFX_DisplaySize;
 
 typedef enum {
     DISPLAY_TYPE_NONE,
     DISPLAY_TYPE_SSD1306,
     DISPLAY_TYPE_ST7789,
+    DISPLAY_TYPE_ST7735,
     DISPLAY_TYPE_COUNT
 } GPGFX_DisplayType;
 
